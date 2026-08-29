@@ -1,0 +1,103 @@
+# services:
+#   postgres:
+#     image: postgres:15-alpine
+#     restart: always
+#     volumes:
+#       - postgres-data:/var/lib/postgresql/data
+#     environment:
+#       POSTGRES_DB: redmine
+#       POSTGRES_USER: redmine
+#       POSTGRES_PASSWORD: secret_password_123
+#     ports:
+#       - "5433:5432"
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U redmine"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+
+#   # Сервис самого Redmine
+#   redmine:
+#     image: redmine:latest
+#     restart: always
+#     ports:
+#       - "8080:3000" 
+#     environment:
+#       REDMINE_DB_POSTGRES: postgres     
+#       REDMINE_DB_USERNAME: redmine   
+#       REDMINE_DB_PASSWORD: secret_password_123 
+#       REDMINE_DB_DATABASE: redmine       
+#       REDMINE_SECRET_KEY_BASE: super_secret_key_change_me
+#     volumes:
+#       - redmine-files:/usr/src/redmine/files      
+#       - redmine-plugins:/usr/src/redmine/plugins  
+#       - redmine-themes:/usr/src/redmine/public/themes
+#     depends_on:
+#       postgres:
+#         condition: service_healthy
+
+# volumes:
+#   postgres-data:
+#   redmine-files:
+#   redmine-plugins:
+#   redmine-themes:
+
+
+services:
+  # Postgres для Redmine
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: redmine
+      POSTGRES_USER: redmine
+      POSTGRES_PASSWORD: secret_password_123
+    ports:
+      - "5433:5432" # Redmine БД снаружи на 5433
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U redmine"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Postgres для приложения
+  util-postgres:
+    image: postgres:17-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres_user
+      POSTGRES_PASSWORD: postgres_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - util-postgres-data:/var/lib/postgresql/data
+
+  # Redmine
+  redmine:
+    image: redmine:latest
+    restart: always
+    ports:
+      - "8080:3000"
+    environment:
+      REDMINE_DB_POSTGRES: postgres
+      REDMINE_DB_USERNAME: redmine
+      REDMINE_DB_PASSWORD: secret_password_123
+      REDMINE_DB_DATABASE: redmine
+      REDMINE_SECRET_KEY_BASE: super_secret_key_change_me
+    volumes:
+      - redmine-files:/usr/src/redmine/files
+      - redmine-plugins:/usr/src/redmine/plugins
+      - redmine-themes:/usr/src/redmine/public/themes
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  util-postgres-data:
+  redmine-files:
+  redmine-plugins:
+  redmine-themes:

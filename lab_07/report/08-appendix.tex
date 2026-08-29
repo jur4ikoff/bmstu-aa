@@ -1,0 +1,505 @@
+\ssr{ПРИЛОЖЕНИЕ А}
+
+\begin{lstlisting}[language=C++, caption={Первая итерация с помощью DeepSeek}, captionpos=b, label=list:deepseek-1]
+import os
+import re
+import sys
+from typing import List, Tuple, Optional
+import PyPDF2
+
+
+def find_non_cyrillic_in_tokens(pdf_path: str) -> Tuple[bool, List[Tuple[str, Tuple[int, int]]]]:
+    pattern = re.compile(
+        r'''
+        (?:^|\s)                   
+        ([а-яА-ЯёЁ0-9\-.,:;!?()"']+?[^а-яА-ЯёЁ0-9\s\-.,:;!?()"'][а-яА-ЯёЁ0-9\-.,:;!?()"']*?) 
+        (?=\s|$)                   
+        ''', 
+        re.VERBOSE | re.UNICODE
+    )
+    
+    results = []
+    
+    try:
+        with open(pdf_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            
+            for page_num in range(len(pdf_reader.pages)):
+                page = pdf_reader.pages[page_num]
+                page_text = page.extract_text()
+                
+                if page_text:
+                    lines = page_text.split('\n')
+                    
+                    for line_num, line in enumerate(lines, 1):
+                        matches = pattern.findall(line)
+                        
+                        for match in matches:
+                            if match:
+                                results.append((match, (page_num + 1, line_num)))
+    
+    except Exception as e:
+        print(f"Ошибка при обработке файла {pdf_path}: {e}")
+        return False, []
+    
+    found = len(results) > 0
+    return found, results
+
+
+def process_pdf_files_in_directory(directory_path: str = "files") -> dict:
+    if not os.path.exists(directory_path):
+        print(f"Директория '{directory_path}' не найдена.")
+        return {}
+    
+    pdf_files = []
+    for file in os.listdir(directory_path):
+        if file.lower().endswith('.pdf'):
+            pdf_files.append(os.path.join(directory_path, file))
+    
+    if not pdf_files:
+        print(f"В директории '{directory_path}' не найдено PDF-файлов.")
+        return {}
+    
+    print(f"Найдено {len(pdf_files)} PDF-файлов для обработки.")
+    
+    results = {}
+    for pdf_file in pdf_files:
+        print(f"\nОбработка файла: {os.path.basename(pdf_file)}")
+        found, matches = find_non_cyrillic_in_tokens(pdf_file)
+        results[pdf_file] = {
+            'found': found,
+            'matches': matches,
+            'filename': os.path.basename(pdf_file)
+        }
+        
+        if found:
+            print(f"Найдены токены с некириллическими символами: {len(matches)} шт.")
+            for match, (page, line) in matches:
+                print(f"- '{match}' на странице {page}, строке {line}")
+        else:
+            print("Некириллических символов в кириллических токенах не найдено.")
+    
+    return results
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("Использование:")
+        print("  python script.py <путь_к_pdf_файлу>")
+        print("  python script.py <путь_к_директории>")
+        print("  python script.py --dir     (для обработки директории 'files')")
+        print("\nПримеры:")
+        print("  python script.py document.pdf")
+        print("  python script.py /путь/к/файлу/document.pdf")
+        print("  python script.py /путь/к/директории")
+        print("  python script.py --dir")
+        return
+    
+    input_path = sys.argv[1]
+    
+    if input_path == "--dir":
+        process_pdf_files_in_directory()
+    elif os.path.isdir(input_path):
+        process_pdf_files_in_directory(input_path)
+    elif os.path.isfile(input_path) and input_path.lower().endswith('.pdf'):
+        print(f"Обработка файла: {input_path}")
+        found, matches = find_non_cyrillic_in_tokens(input_path)
+        
+        print(f"\nРезультаты для файла: {os.path.basename(input_path)}")
+        print(f"Найдены токены с некириллическими символами: {found}")
+        
+        if found:
+            print(f"Количество найденных токенов: {len(matches)}")
+            for i, (match, (page, line)) in enumerate(matches, 1):
+                print(f"{i}. '{match}' - страница {page}, строка {line}")
+        else:
+            print("Токенов с некириллическими символами не найдено.")
+    else:
+        print(f"Ошибка: '{input_path}' не является PDF-файлом или директорией.")
+
+
+if __name__ == "__main__":
+    main()
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++, caption={Вторая итерация с помощью DeepSeek}, captionpos=b, label=list:deepseek-2]
+import os
+import re
+import sys
+from typing import List, Tuple
+import PyPDF2
+
+
+def find_non_cyrillic_in_tokens(pdf_path: str) -> Tuple[bool, List[Tuple[str, Tuple[int, int]]]]:
+    pattern = re.compile(
+        r'''
+        (?:^|\s)               
+        (
+          (?:                      
+            [а-яА-ЯёЁ]+            
+            |                      
+            [а-яА-ЯёЁ][0-9\-.,:;!?()"'%]* 
+          )
+          [^а-яА-ЯёЁ0-9\s\-.,:;!?()"'%] 
+          .*?                       
+        )
+        (?=\s|$)
+        ''', 
+        re.VERBOSE | re.UNICODE
+    )
+    
+    pattern2 = re.compile(
+        r'''
+        (?:^|\s)
+        (                          
+          [а-яА-ЯёЁ]               
+          [а-яА-ЯёЁ0-9\-.,:;!?()"'%]* 
+          [^а-яА-ЯёЁ0-9\s\-.,:;!?()"'%]
+          [а-яА-ЯёЁ0-9\-.,:;!?()"'%]* 
+        )
+        (?=\s|$)
+        ''',
+        re.VERBOSE | re.UNICODE
+    )
+
+    simple_pattern = re.compile(
+        r'''
+        (?:^|\s)                  
+        (                  
+          [^\s]+     
+        )
+        (?=\s|$)            
+        ''',
+        re.VERBOSE | re.UNICODE
+    )
+    
+    results = []
+    
+    try:
+        with open(pdf_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            
+            for page_num in range(len(pdf_reader.pages)):
+                page = pdf_reader.pages[page_num]
+                page_text = page.extract_text()
+                
+                if page_text:
+                    lines = page_text.split('\n')
+                    
+                    for line_num, line in enumerate(lines, 1):
+                        potential_tokens = simple_pattern.findall(line)
+                        
+                        for token in potential_tokens:
+                            has_cyrillic = bool(re.search(r'[а-яА-ЯёЁ]', token))
+                            
+                            if has_cyrillic:
+                                has_non_cyrillic = bool(
+                                    re.search(
+                                        r'[^а-яА-ЯёЁ0-9\s\-.,:;!?()"'']',
+                                        token
+                                    )
+                                )
+                                
+                                if has_non_cyrillic:
+                                    cyrillic_chars = re.findall(r'[а-яА-ЯёЁ]', token)
+                                    total_chars = len(token)
+                                    
+                                    if len(cyrillic_chars) / total_chars >= 0.3:
+                                        results.append((token, (page_num + 1, line_num)))
+    
+    except Exception as e:
+        print(f"Ошибка при обработке файла {pdf_path}: {e}")
+        return False, []
+    
+    found = len(results) > 0
+    return found, results
+
+
+def process_pdf_files_in_directory(directory_path: str = "files") -> None:
+    print("Программа для поиска некириллических символов в кириллических токенах")
+    print("=" * 60)
+    
+    if not os.path.exists(directory_path):
+        print(f"Ошибка: Директория '{directory_path}' не найдена.")
+        print("Создайте директорию 'files' и поместите в нее PDF-файлы для обработки.")
+        return
+    
+    pdf_files = []
+    for file in os.listdir(directory_path):
+        if file.lower().endswith('.pdf'):
+            pdf_files.append(os.path.join(directory_path, file))
+    
+    if not pdf_files:
+        print(f"В директории '{directory_path}' не найдено PDF-файлов.")
+        print("Поместите PDF-файлы в директорию 'files'.")
+        return
+    
+    print(f"Найдено {len(pdf_files)} PDF-файлов для обработки:")
+    for i, file in enumerate(pdf_files, 1):
+        print(f"  {i}. {os.path.basename(file)}")
+    print("=" * 60)
+    
+    all_results = []
+    for pdf_file in pdf_files:
+        filename = os.path.basename(pdf_file)
+        print(f"\nОбработка файла: {filename}")
+        print("-" * 40)
+        
+        found, matches = find_non_cyrillic_in_tokens(pdf_file)
+        
+        if found:
+            print(f"Найдены кириллические токены: {len(matches)} шт.")
+            for match, (page, line) in matches:
+                print(f"  - '{match}' (страница {page}, строка {line})")
+            all_results.append((filename, matches))
+        else:
+            print("Токенов не найдено.")
+    
+    print("\n" + "=" * 60)
+    print("ИТОГОВЫЙ ОТЧЕТ")
+    print("=" * 60)
+    
+    if all_results:
+        total_tokens = sum(len(matches) for _, matches in all_results)
+        print(f"Всего найдено кириллических токенов с некириллическими символами: {total_tokens}")
+        print("Файлы с найденными токенами:")
+        for filename, matches in all_results:
+            print(f"  - {filename}: {len(matches)} токенов")
+    else:
+        print("Во всех файлах отсутствуют.")
+    
+    print("\nОбработка завершена.")
+
+
+def main():
+    process_pdf_files_in_directory()
+
+
+if __name__ == "__main__":
+    main()
+\end{lstlisting}
+
+
+
+\begin{lstlisting}[language=C++, caption={Первая итерация запроса в ChatGPT 5.1}, captionpos=b, label=list:chatgpt-1]
+    import os
+from PyPDF2 import PdfReader
+
+
+def is_cyrillic_letter(ch):
+    return 'А' <= ch <= 'Я' or 'а' <= ch <= 'я' or ch == 'Ё' or ch == 'ё'
+
+
+def check_pdf_for_invalid_cyrillic_tokens(pdf_path):
+    reader = PdfReader(pdf_path)
+    results = []
+
+    for page_number, page in enumerate(reader.pages, start=1):
+        text = page.extract_text()
+        if not text:
+            continue
+
+        text = text.replace('\u00A0', ' ')
+        lines = text.splitlines()
+
+        for line_number, line in enumerate(lines, start=1):
+            tokens = line.split()
+            for token in tokens:
+                has_cyrillic = False
+                has_foreign_letter = False
+
+                for ch in token:
+                    if ch.isalpha():
+                        if is_cyrillic_letter(ch):
+                            has_cyrillic = True
+                        else:
+                            has_foreign_letter = True
+
+                if has_cyrillic and has_foreign_letter:
+                    results.append((token, page_number, line_number))
+
+    if results:
+        return True, results
+    return False, []
+
+
+def process_all_pdfs_in_directory(directory):
+    reports = {}
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file.lower().endswith(".pdf"):
+                path = os.path.join(root, file)
+                reports[path] = check_pdf_for_invalid_cyrillic_tokens(path)
+    return reports
+
+
+def print_report(reports):
+    for pdf_path, (exists, entries) in reports.items():
+        print("=" * 60)
+        print(f"Файл: {os.path.basename(pdf_path)}")
+        if not exists:
+            print("Нарушения не обнаружены")
+        else:
+            print("Обнаружены некорректные кириллические токены:")
+            for token, page, line in entries:
+                print(f"  Страница {page}, строка {line}: {token}")
+        print()
+
+
+if __name__ == "__main__":
+    reports = process_all_pdfs_in_directory("files")
+    print_report(reports)
+report/08-appendix.tex
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++, caption={Первая итерация запроса в Qwen-Coder}, captionpos=b, label=list:qwen-1]
+import os
+from PyPDF2 import PdfReader
+
+
+def is_cyrillic_letter(ch):
+    return 'А' <= ch <= 'Я' or 'а' <= ch <= 'я' or ch == 'Ё' or ch == 'ё'
+
+
+def check_pdf_for_invalid_cyrillic_tokens(pdf_path):
+    reader = PdfReader(pdf_path)
+    results = []
+
+    for page_number, page in enumerate(reader.pages, start=1):
+        text = page.extract_text()
+        if not text:
+            continue
+
+        text = text.replace('\u00A0', ' ')
+        lines = text.splitlines()
+
+        for line_number, line in enumerate(lines, start=1):
+            tokens = line.split()
+            for token in tokens:
+                has_cyrillic = False
+                has_foreign_letter = False
+
+                for ch in token:
+                    if ch.isalpha():
+                        if is_cyrillic_letter(ch):
+                            has_cyrillic = True
+                        else:
+                            has_foreign_letter = True
+
+                if has_cyrillic and has_foreign_letter:
+                    results.append((token, page_number, line_number))
+
+    if results:
+        return True, results
+    return False, []
+
+
+def process_all_pdfs_in_directory(directory):
+    reports = {}
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file.lower().endswith(".pdf"):
+                path = os.path.join(root, file)
+                reports[path] = check_pdf_for_invalid_cyrillic_tokens(path)
+    return reports
+
+
+def print_report(reports):
+    for pdf_path, (exists, entries) in reports.items():
+        print("=" * 60)
+        print(f"Файл: {os.path.basename(pdf_path)}")
+        if not exists:
+            print("Нарушения не обнаружены")
+        else:
+            print("Обнаружены некорректные кириллические токены:")
+            for token, page, line in entries:
+                print(f"  Страница {page}, строка {line}: {token}")
+        print()
+
+
+if __name__ == "__main__":
+    reports = process_all_pdfs_in_directory("files")
+    print_report(reports)
+\end{lstlisting}
+
+
+
+\begin{lstlisting}[language=C++, caption={Вторая итерация запроса в Qwen-Coder}, captionpos=b, label=list:qwen-2]
+import os
+import re
+from pathlib import Path
+from PyPDF2 import PdfReader
+from PyPDF2.errors import PdfReadError
+
+
+def find_non_cyrillic_in_cyrillic_tokens(pdf_path):
+    if not os.path.isfile(pdf_path):
+        return (False, [])
+    
+    try:
+        reader = PdfReader(pdf_path)
+    except Exception:
+        return (False, [])
+    
+    results = []
+    # Паттерн для извлечения потенциальных "слов":
+    # буквы (любые), цифры, дефис, апострофы (включая Unicode ’)
+    word_pattern = re.compile(r"[a-zA-Zа-яА-ЯёЁ0-9\-\'\u2019]+")
+
+    for page_num, page in enumerate(reader.pages, start=1):
+        try:
+            text = page.extract_text()
+        except Exception:
+            continue
+        if not text:
+            continue
+        lines = text.split('\n')
+        for line_num, line in enumerate(lines, start=1):
+            tokens = word_pattern.findall(line)
+            for token in tokens:
+                if re.search(r'[а-яА-ЯёЁ]', token):  # есть кириллица?
+                    # Проверяем: есть ли символы вне разрешённого кириллического набора?
+                    if re.search(r'[^а-яА-ЯёЁ0-9\-\'\u2019]', token):
+                        results.append((token, (page_num, line_num)))
+                        break
+    return (len(results) > 0, results)
+
+
+def process_all_pdfs_in_directory(directory="files"):
+    results_dict = {}
+    dir_path = Path(directory)
+    if not dir_path.exists() or not dir_path.is_dir():
+        return results_dict
+    for pdf_file in sorted(dir_path.glob("*.pdf")):
+        pdf_path_str = str(pdf_file)
+        result = find_non_cyrillic_in_cyrillic_tokens(pdf_path_str)
+        results_dict[pdf_path_str] = result
+    return results_dict
+
+
+def main():
+    result = process_all_pdfs_in_directory()
+    print("\n📊 РЕЗУЛЬТАТЫ АНАЛИЗА PDF-ФАЙЛОВ\n" + "="*50)
+    if not result:
+        print("📭 Нет PDF-файлов в директории 'files'.")
+        return
+
+    any_found = False
+    for pdf_path, (found, matches) in result.items():
+        print(f"\n📄 {os.path.basename(pdf_path)}")
+        if found:
+            any_found = True
+            for token, (page, line) in matches:
+                print(f"   • '{token}' — стр. {page}, строка {line}")
+        else:
+            print("   ✔ Некириллических символов в кириллических словах не найдено.")
+    
+    if not any_found:
+        print("\n✅ Все файлы соответствуют требованиям.")
+    else:
+        print("\n❗ Обнаружены кириллические токены с некириллическими символами.")
+
+
+if __name__ == "__main__":
+    main()
+\end{lstlisting}

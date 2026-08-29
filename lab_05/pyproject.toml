@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "aa5"
+version = "0.1.0"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+faker = "^24.0" 
+aiohttp = "^3.12.2"
+pydantic = "^2.12"
+pydantic_settings = "^2.12"
+sqlalchemy = "^2.0.45"
+alembic = "^1.13"
+asyncpg = "^0.31"
+greenlet = "^3.3.0"
+
+[tool.poetry.group.dev.dependencies]
+pylint = "^3.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
