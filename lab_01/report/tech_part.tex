@@ -1,0 +1,87 @@
+\chapter{Технологическая часть}
+В данном разделе будут описаны требования к реализации программного обеспечения, выбору языков программирования и тестированию.
+
+
+\section{Требование к программному обеспечению}
+Программное обеспечение должно удовлетворять следующим критериям:
+\begin{itemize}
+	\itemпрограмма должна обеспечить возможность ввести две матрицы для их умножения. Для успешного ввода пользователь должен иметь возможность задать 2 размера матрицы и поэлементно ввести содержимое матрицы;
+	\itemдля замеров времени выполнения, ПО должно обеспечить возможность ввода начального и конечного размера матриц, а также ввести шаг замеров;
+	\itemпрограмма должна иметь возможность умножения двух матриц тремя алгоритмами: стандартным, Винограда и оптимизированным по варианту алгоритмом Винограда.
+\end{itemize}
+
+\section{Средства реализации}
+В качестве средства реализации был выбран язык C++. Для разработки была выбрана среда VS Code. Для сборки проектов была выбрана утилита CMake. Для корректной работы с системой pipeline был написан Makefile. Средством построения графиком и сборки результатов тестов выбран язык Python, в виду  распространённости библиотек для работы с данными.
+
+\section{Реализация алгоритмов}
+Ниже приведены листинги реализации алгоритмов умножения матриц. На листинге 3.1 (стандартный), 3.2 (Винограда), 3.3 (Оптимизированный Винограда)
+\\
+\begin{lstlisting}[language=C++, caption={Стандартный алгоритм умножения матриц}, captionpos=b]
+for (size_t i = 0; i < n; i++) {
+	for (size_t j = 0; j < t; j++) {
+		for (size_t k = 0; k < m; k++) {
+		answer._matrix[i][j] += this->_matrix[i][k] * other._matrix[k][j]; }}}
+\end{lstlisting}
+
+\clearpage
+\begin{lstlisting}[language=C++, caption={Стандартный алгоритм умножения матриц}, captionpos=b]
+  for (size_type i = 0; i < n; i++) {
+	for (size_type j = 0; j < m / 2; j++) {
+		row_sum[i] += (this->_matrix[i][2 * j] * this->_matrix[i][2 * j + 1]);}}
+for (size_type i = 0; i < t; i++) {
+	for (size_type j = 0; j < m / 2; j++) {
+		col_sum[i] += (other._matrix[2 * j][i] * other._matrix[2 * j + 1][i]);}}
+
+for (size_t i = 0; i < n; i++) {
+	for (size_t j = 0; j < t; j++) {
+		answer._matrix[i][j] = -row_sum[i] - col_sum[j];
+		for (size_t k = 0; k < m / 2; k++) {
+			answer._matrix[i][j] +=
+			(this->_matrix[i][2 * k + 1] + other._matrix[2 * k][j]) *
+			(this->_matrix[i][2 * k] + other._matrix[2 * k + 1][j]);}}}
+...
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++, caption=Оптимизированный алгоритм Винограда, captionpos=b]
+for (size_type i = 0; i < n; i++) {
+	for (size_type j = 0; j < half_m; j++) {
+		row_sum[i] += (this->_matrix[i][j << 1] * this->_matrix[i][(j << 1) + 1]); }}
+for (size_type i = 0; i < t; i++) {
+	for (size_type j = 0; j < half_m; j++) {
+		col_sum[i] += (other._matrix[j << 1][i] * other._matrix[(j << 1) + 1][i]); }}
+
+for (size_t i = 0; i < n; i++) {
+	for (size_t j = 0; j < t; j++) {
+		answer._matrix[i][j] = -row_sum[i] - col_sum[j];
+		for (size_t k = 0; k < half_m; k++) {
+			answer._matrix[i][j] +=
+			(this->_matrix[i][(k << 1) + 1] + other._matrix[k << 1][j]) *
+			(this->_matrix[i][k << 1] + other._matrix[(k << 1) + 1][j]);}}}
+...
+\end{lstlisting}
+
+\section{Тестирование ПО}
+Для тестирование ПО было выбрано 4 тестовых случая для каждого алгоритма. Тестовые случаи указанные в таблице 3.1
+\begin{table}[h]
+			\centering
+	\caption{Примеры умножения матриц различной размерности}
+	\begin{tabular}{|c|c|c|c|}
+		\hline
+		Матрица A & Матрица B & Результат (матрица) & Код \\
+		\hline
+		(2) & (3) & \((6)\) & OK\\
+		\hline
+		$\begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}$ & $\begin{pmatrix} 5 & 6 \\ 7 & 8 \end{pmatrix}$ & $\begin{pmatrix} 19 & 22 \\ 43 & 50 \end{pmatrix}$ & OK \\
+		\hline
+				$\begin{pmatrix} 1 & 2 \\ 3 & 4 \\ 5 & 6 \end{pmatrix}$ & $\begin{pmatrix} 7 & 8 & 9 \\ 10 & 11 & 12 \end{pmatrix}$ & $\begin{pmatrix} 27 & 30 & 33 \\ 61 & 68 & 75 \\ 95 & 106 & 117 \end{pmatrix}$ & OK \\
+		\hline
+		$\begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}$ & $\begin{pmatrix} 1 & 2 \end{pmatrix}$ & — & ERROR \\
+		\hline
+	\end{tabular}
+\end{table}
+
+Все тесты прошли успешно.
+\section*{Вывод}
+На основе конструкторской части были реализованы и протестированы алгоритмы умножения матриц.
+
+\clearpage
